@@ -104,18 +104,17 @@ class instance_custom_training:
         if augmentation == False:
             print("No Augmentation")
 
-        else:
-            if augmentation == True:
-                augmentation = imgaug.augmenters.Sometimes(0.5, [
-			        imgaug.augmenters.Fliplr(0.5),
-			        iaa.Flipud(0.5),
-			        imgaug.augmenters.GaussianBlur(sigma=(0.0, 5.0))
-			        ])
-                print("Applying Default Augmentation on Dataset")
+        elif augmentation == True:
+            augmentation = imgaug.augmenters.Sometimes(0.5, [
+            imgaug.augmenters.Fliplr(0.5),
+            iaa.Flipud(0.5),
+            imgaug.augmenters.GaussianBlur(sigma=(0.0, 5.0))
+            ])
+            print("Applying Default Augmentation on Dataset")
 
-            else:
-                augmentation = augmentation
-                print("Applying Custom Augmentation on Dataset")   
+        else:
+            augmentation = augmentation
+            print("Applying Custom Augmentation on Dataset")   
 
         print('Train %d' % len(self.dataset_train.image_ids), "images")
         print('Validate %d' % len(self.dataset_test.image_ids), "images")
@@ -170,19 +169,18 @@ class Data(Dataset):
 
     def load_data(self,  annotation_json, images_path):
        
-        # Load json from file
-        json_file = open(annotation_json)
-        coco_json = json.load(json_file)
-        json_file.close()
-
+        with open(annotation_json) as json_file:
+            coco_json = json.load(json_file)
         # Add the class names using the base method from utils.Dataset
         source_name = "coco_like_dataset"
         for category in coco_json['categories']:
             class_id = category['id']
             class_name = category['name']
             if class_id < 1:
-                print('Error: Class id for "{}" cannot be less than one. (0 is reserved for the background)'.format(
-                    class_name))
+                print(
+                    f'Error: Class id for "{class_name}" cannot be less than one. (0 is reserved for the background)'
+                )
+
                 return
 
             self.add_class(source_name, class_id, class_name)
@@ -200,7 +198,7 @@ class Data(Dataset):
         for image in coco_json['images']:
             image_id = image['id']
             if image_id in seen_images:
-                print("Warning: Skipping duplicate image id: {}".format(image))
+                print(f"Warning: Skipping duplicate image id: {image}")
             else:
                 seen_images[image_id] = image
                 try:
@@ -208,7 +206,7 @@ class Data(Dataset):
                     image_width = image['width']
                     image_height = image['height']
                 except KeyError as key:
-                    print("Warning: Skipping image (id: {}) with missing key: {}".format(image_id, key))
+                    print(f"Warning: Skipping image (id: {image_id}) with missing key: {key}")
 
                 image_path = os.path.abspath(os.path.join(images_path, image_file_name))
                 image_annotations = annotations[image_id]

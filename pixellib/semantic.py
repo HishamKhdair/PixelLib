@@ -57,16 +57,11 @@ class semantic_segmentation():
     
     if model_file == "pb":
 
-      if process_frame == True:
-        image = image_path
-
-      else:
-        image = cv2.imread(image_path)
-
+      image = image_path if process_frame == True else cv2.imread(image_path)
       w,h, n = image.shape
 
       image_overlay = image.copy()
-     
+
       if n > 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
 
@@ -77,46 +72,22 @@ class semantic_segmentation():
       batch_seg_map = self.sess.run(
         self.OUTPUT_TENSOR_NAME,
         feed_dict={self.INPUT_TENSOR_NAME: [np.asarray(resized_image)]})
-     
+
       seg_image = batch_seg_map[0]
       raw_labels = seg_image
-      
+
       """Access  the unique class ids of the masks """
       unique_labels = np.unique(raw_labels)
-      
+
       raw_labels = np.array(Image.fromarray(raw_labels.astype('uint8')).resize((h, w)))
-      
-      
+
+
       """ Convert the indexed masks to boolean masks """
       raw_labels = np.ma.make_mask(raw_labels)
       segvalues = {"class_ids":unique_labels,  "masks":raw_labels}  
-        
+
       #Apply segmentation color map
-      labels = labelP_to_color_image(seg_image)   
-      labels = np.array(Image.fromarray(labels.astype('uint8')).resize((h, w)))
-      new_img = cv2.cvtColor(labels, cv2.COLOR_RGB2BGR)
-      
-      if overlay == True:
-        alpha = 0.7
-        cv2.addWeighted(new_img, alpha, image_overlay, 1 - alpha,0, image_overlay)
-
-        if output_image_name is not None:
-          cv2.imwrite(output_image_name, image_overlay)
-          print("Processed Image saved successfully in your current working directory.")
-
-        return segvalues, image_overlay
-
-        
-      else:  
-        if output_image_name is not None:
-  
-          cv2.imwrite(output_image_name, new_img)
-
-          print("Processed Image saved successfuly in your current working directory.")
-
-        return segvalues, new_img 
-
-      
+      labels = labelP_to_color_image(seg_image)
     else:
 
       trained_image_width=512
@@ -126,14 +97,14 @@ class semantic_segmentation():
         image = image_path
       else:  
         image = np.array(Image.open(image_path))     
-   
+
 
       # resize to max dimension of images from training dataset
       w, h, n = image.shape
 
       if n > 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGRA2RGB)
-    
+
       image_overlay = image.copy()
 
       ratio = float(trained_image_width) / np.max([w, h])
@@ -151,7 +122,7 @@ class semantic_segmentation():
 
       #run prediction
       res = self.model.predict(np.expand_dims(resized_image, 0))
-    
+
       labels = np.argmax(res.squeeze(), -1)
       # remove padding and resize back to original image
       if pad_x > 0:
@@ -160,10 +131,10 @@ class semantic_segmentation():
         labels = labels[:, :-pad_y]
 
       raw_labels = labels
-      
+
       """ Access the unique class ids of the masks"""
       unique_labels = np.unique(raw_labels)
-      
+
       raw_labels = np.array(Image.fromarray(raw_labels.astype('uint8')).resize((h, w)))
 
 
@@ -173,34 +144,31 @@ class semantic_segmentation():
 
       segvalues = {"class_ids":unique_labels,  "masks":raw_labels}   
 
-        
+
       #Apply segmentation color map
-      labels = labelP_to_color_image(labels)   
-      labels = np.array(Image.fromarray(labels.astype('uint8')).resize((h, w)))
-      
-      
-      new_img = cv2.cvtColor(labels, cv2.COLOR_RGB2BGR)
-      
+      labels = labelP_to_color_image(labels)
+    labels = np.array(Image.fromarray(labels.astype('uint8')).resize((h, w)))
+    new_img = cv2.cvtColor(labels, cv2.COLOR_RGB2BGR)
 
-      if overlay == True:
-        alpha = 0.7
-        cv2.addWeighted(new_img, alpha, image_overlay, 1 - alpha,0, image_overlay)
+    if overlay == True:
+      alpha = 0.7
+      cv2.addWeighted(new_img, alpha, image_overlay, 1 - alpha,0, image_overlay)
 
-        if output_image_name is not None:
-          cv2.imwrite(output_image_name, image_overlay)
-          print("Processed Image saved successfully in your current working directory.")
+      if output_image_name is not None:
+        cv2.imwrite(output_image_name, image_overlay)
+        print("Processed Image saved successfully in your current working directory.")
 
-        return segvalues, image_overlay
+      return segvalues, image_overlay
 
-        
-      else:  
-        if output_image_name is not None:
-  
-          cv2.imwrite(output_image_name, new_img)
 
-          print("Processed Image saved successfuly in your current working directory.")
+    else:  
+      if output_image_name is not None:
 
-        return segvalues, new_img 
+        cv2.imwrite(output_image_name, new_img)
+
+        print("Processed Image saved successfuly in your current working directory.")
+
+      return segvalues, new_img 
 
   
   def segmentFrameAsPascalvoc(self, frame, output_frame_name=None,overlay=False, verbose = None):  
@@ -227,72 +195,69 @@ class semantic_segmentation():
     height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     if output_video_name is not None:
       save_video = cv2.VideoWriter(output_video_name, cv2.VideoWriter_fourcc(*'DIVX'),frames_per_second, (width, height))
-    
+
     counter = 0
     start = time.time() 
 
     if overlay == True:
       while True:
         counter += 1
-        
+
         ret, frame = capture.read()
-        
-        if ret:
-          raw_labels, frame_overlay  = self.segmentAsPascalvoc(frame, overlay=True, process_frame= True)
-          print("No. of frames:", counter)
-          output = cv2.resize(frame_overlay, (width,height), interpolation=cv2.INTER_AREA)
-          if output_video_name is not None:
-            save_video.write(output)
-        else:
+
+        if not ret:
           break   
- 
+
+        raw_labels, frame_overlay  = self.segmentAsPascalvoc(frame, overlay=True, process_frame= True)
+        print("No. of frames:", counter)
+        output = cv2.resize(frame_overlay, (width,height), interpolation=cv2.INTER_AREA)
+        if output_video_name is not None:
+          save_video.write(output)
       end = time.time()
       print(f"Processed {counter} frames in {end-start:.1f} seconds")
       capture.release()
       if output_video_name is not None:
         save_video.release()
-      return  raw_labels, output
-
     else:
       while True:
         
         counter += 1
         ret, frame = capture.read()
-        
-        if ret:
-          raw_labels, new_frame  = self.segmentAsPascalvoc(frame, process_frame= True)  
-          print("No. of frames:", counter)
-          output = cv2.resize(new_frame, (width,height), interpolation=cv2.INTER_AREA)
-          if output_video_name is not None:
-            save_video.write(output)
 
-        else:
+        if not ret:
           break
+
+        raw_labels, new_frame  = self.segmentAsPascalvoc(frame, process_frame= True)
+        print("No. of frames:", counter)
+        output = cv2.resize(new_frame, (width,height), interpolation=cv2.INTER_AREA)
+        if output_video_name is not None:
+          save_video.write(output)
 
       capture.release()
 
       end = time.time()
       print(f"Processed {counter} frames in {end-start:.1f} seconds")
-      
+
       if frames_per_second is not None:
         save_video.release()
 
-      return  raw_labels,  output
+
+    return  raw_labels, output
 
 
 
 
   def process_camera_pascalvoc(self, cam, overlay = False,  check_fps = False, frames_per_second = None, output_video_name = None, show_frames = False, frame_name = None, verbose = None):
     capture = cam
-    
+
     if output_video_name is not None:
       width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
       height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
       save_video = cv2.VideoWriter(output_video_name, cv2.VideoWriter_fourcc(*'DIVX'), frames_per_second, (width, height))
-    
+
     counter = 0
     start = datetime.now() 
-    
+
 
     if overlay == True:
       while True:
@@ -301,11 +266,10 @@ class semantic_segmentation():
         if ret:
           raw_labels, frame_overlay  = self.segmentAsPascalvoc(frame, overlay=True, process_frame= True)
           counter += 1
-          if show_frames == True:
-            if frame_name is not None:
-              cv2.imshow(frame_name, frame_overlay)
-              if cv2.waitKey(25) & 0xFF == ord('q'):
-                break 
+          if show_frames == True and frame_name is not None:
+            cv2.imshow(frame_name, frame_overlay)
+            if cv2.waitKey(25) & 0xFF == ord('q'):
+              break 
 
           if output_video_name is not None:
             output = cv2.resize(frame_overlay, (width,height), interpolation=cv2.INTER_AREA)
@@ -313,19 +277,19 @@ class semantic_segmentation():
 
         elif counter == 30:
           break 
-      
+
       end = datetime.now()
 
       if check_fps == True:
         timetaken = (end-start).total_seconds()
         fps = counter/timetaken
         print(f"{fps} frames per seconds") 
-        
+
       capture.release()
 
       if verbose is not None:
         print(f"Processed {counter} frames in {timetaken:.1f} seconds")
-      
+
       if output_video_name is not None:
         save_video.release()
 
@@ -337,12 +301,11 @@ class semantic_segmentation():
         if ret:
           raw_labels, new_frame  = self.segmentAsPascalvoc(frame, process_frame= True)
           counter += 1
-          
-          if show_frames == True:
-            if frame_name is not None:
-              cv2.imshow(frame_name, new_frame)
-              if cv2.waitKey(25) & 0xFF == ord('q'):
-                break 
+
+          if show_frames == True and frame_name is not None:
+            cv2.imshow(frame_name, new_frame)
+            if cv2.waitKey(25) & 0xFF == ord('q'):
+              break 
 
           if output_video_name is not None:
             output = cv2.resize(new_frame, (width,height), interpolation=cv2.INTER_AREA)
@@ -357,11 +320,11 @@ class semantic_segmentation():
         print(f"{fps} frames per seconds") 
 
       capture.release()  
-        
-      
+
+
       if verbose is not None:
         print(f"Processed {counter} frames in {timetaken:.1f} seconds")
-     
+
 
       if output_video_name is not None:
         save_video.release()
@@ -481,71 +444,68 @@ class semantic_segmentation():
     height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     if output_video_name is not None:
       save_video = cv2.VideoWriter(output_video_name, cv2.VideoWriter_fourcc(*'DIVX'),frames_per_second, (width, height))
-    
+
     counter = 0
     start = time.time() 
 
     if overlay == True:
       while True:
         counter += 1
-        
+
         ret, frame = capture.read()
-        
-        if ret:
-          raw_labels, frame_overlay  = self.segmentAsAde20k(frame, overlay=True, process_frame= True)
-          print("No. of frames:", counter)
-          output = cv2.resize(frame_overlay, (width,height), interpolation=cv2.INTER_AREA)
-          if output_video_name is not None:
-            save_video.write(output)
-        else:
+
+        if not ret:
           break   
- 
+
+        raw_labels, frame_overlay  = self.segmentAsAde20k(frame, overlay=True, process_frame= True)
+        print("No. of frames:", counter)
+        output = cv2.resize(frame_overlay, (width,height), interpolation=cv2.INTER_AREA)
+        if output_video_name is not None:
+          save_video.write(output)
       end = time.time()
       print(f"Processed {counter} frames in {end-start:.1f} seconds")
       capture.release()
       if output_video_name is not None:
         save_video.release()
-      return  raw_labels, output
-
     else:
       while True:
         
         counter += 1
         ret, frame = capture.read()
-        
-        if ret:
-          raw_labels, new_frame  = self.segmentAsAde20k(frame, process_frame= True)  
-          print("No. of frames:", counter)
-          output = cv2.resize(new_frame, (width,height), interpolation=cv2.INTER_AREA)
-          if output_video_name is not None:
-            save_video.write(output)
 
-        else:
+        if not ret:
           break
+
+        raw_labels, new_frame  = self.segmentAsAde20k(frame, process_frame= True)
+        print("No. of frames:", counter)
+        output = cv2.resize(new_frame, (width,height), interpolation=cv2.INTER_AREA)
+        if output_video_name is not None:
+          save_video.write(output)
 
       capture.release()
 
       end = time.time()
       print(f"Processed {counter} frames in {end-start:.1f} seconds")
-      
+
       if frames_per_second is not None:
         save_video.release()
 
-      return  raw_labels,  output
+
+    return  raw_labels, output
 
   
 
   def process_camera_ade20k(self, cam, overlay = False,  check_fps = False, frames_per_second = None, output_video_name = None, show_frames = False, frame_name = None, verbose = None):
     capture = cam
-    
+
     if output_video_name is not None:
       width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
       height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
       save_video = cv2.VideoWriter(output_video_name, cv2.VideoWriter_fourcc(*'DIVX'), frames_per_second, (width, height))
-    
+
     counter = 0
     start = datetime.now() 
-    
+
 
     if overlay == True:
       while True:
@@ -554,11 +514,10 @@ class semantic_segmentation():
         if ret:
           raw_labels, frame_overlay  = self.segmentAsAde20k(frame, overlay=True, process_frame= True)
           counter += 1
-          if show_frames == True:
-            if frame_name is not None:
-              cv2.imshow(frame_name, frame_overlay)
-              if cv2.waitKey(25) & 0xFF == ord('q'):
-                break 
+          if show_frames == True and frame_name is not None:
+            cv2.imshow(frame_name, frame_overlay)
+            if cv2.waitKey(25) & 0xFF == ord('q'):
+              break 
 
           if output_video_name is not None:
             output = cv2.resize(frame_overlay, (width,height), interpolation=cv2.INTER_AREA)
@@ -566,19 +525,19 @@ class semantic_segmentation():
 
         elif counter == 30:
           break 
-      
+
       end = datetime.now()
 
       if check_fps == True:
         timetaken = (end-start).total_seconds()
         fps = counter/timetaken
         print(f"{fps} frames per seconds") 
-        
+
       capture.release()
 
       if verbose is not None:
         print(f"Processed {counter} frames in {timetaken:.1f} seconds")
-      
+
       if output_video_name is not None:
         save_video.release()
 
@@ -590,12 +549,11 @@ class semantic_segmentation():
         if ret:
           raw_labels, new_frame  = self.segmentAsAde20k(frame, process_frame= True)
           counter += 1
-          
-          if show_frames == True:
-            if frame_name is not None:
-              cv2.imshow(frame_name, new_frame)
-              if cv2.waitKey(25) & 0xFF == ord('q'):
-                break 
+
+          if show_frames == True and frame_name is not None:
+            cv2.imshow(frame_name, new_frame)
+            if cv2.waitKey(25) & 0xFF == ord('q'):
+              break 
 
           if output_video_name is not None:
             output = cv2.resize(new_frame, (width,height), interpolation=cv2.INTER_AREA)
@@ -610,11 +568,11 @@ class semantic_segmentation():
         print(f"{fps} frames per seconds") 
 
       capture.release()  
-        
-      
+
+
       if verbose is not None:
         print(f"Processed {counter} frames in {timetaken:.1f} seconds")
-     
+
 
       if output_video_name is not None:
         save_video.release()
@@ -670,19 +628,19 @@ def label_pascal():
 ])  
 
 def obtain_segmentation(image, nc = 21):
-    colors = label_pascal()
-    r = np.zeros_like(image).astype(np.uint8)
-    g = np.zeros_like(image).astype(np.uint8)
-    b = np.zeros_like(image).astype(np.uint8)
-    
-    for a in range(0,nc):
-        index = image == a
-        r[index] = colors[a, 0]
-        g[index] = colors[a, 1]
-        b[index] = colors[a, 2]
-        rgb = np.stack([r,g,b], axis = 2)  
+  colors = label_pascal()
+  r = np.zeros_like(image).astype(np.uint8)
+  g = np.zeros_like(image).astype(np.uint8)
+  b = np.zeros_like(image).astype(np.uint8)
 
-    return rgb  
+  for a in range(nc):
+    index = image == a
+    r[index] = colors[a, 0]
+    g[index] = colors[a, 1]
+    b[index] = colors[a, 2]
+    rgb = np.stack([r,g,b], axis = 2)  
+
+  return rgb  
 
 # Assign colors to objects #
 

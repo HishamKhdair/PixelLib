@@ -131,55 +131,51 @@ class instance_segmentation():
         scores = segvalues['scores']
         masks = segvalues['masks']
         class_ids = segvalues['class_ids']
-            
-            
         com_bboxes = []
         com_masks = []
         com_scores = []
         com_class_ids = []
-            
-        final_dict = []
-        for a, b in enumerate(segvalues['class_ids']):
+        for a, b in enumerate(class_ids):
             name = coco_config.class_names[b]
 
-                
+
             box = bboxes[a]
-               
+
             ma = masks[:, :, a]
-                
+
             score = scores[a]
-                
+
             c_ids = class_ids[a]
-                
-                
+
+
             if (segment_target_classes[name] == "invalid"):
                 continue
-                    
+
             com_bboxes.append(box)
             com_class_ids.append(c_ids)
             com_masks.append(ma)
             com_scores.append(score)
-                
-                 
+
+
         final_bboxes = np.array(com_bboxes)
-            
+
         final_class_ids = np.array(com_class_ids)
         final_masks = np.array(com_masks)
         if len(final_masks != 0):
             final_masks = np.stack(final_masks, axis = 2)
-            
+
         final_scores = np.array(com_scores)
-            
-        final_dict.append({
-            "rois": final_bboxes,
-            "class_ids": final_class_ids,
-            "scores": final_scores,
-            "masks": final_masks,})
-        
-        final_values = final_dict[0]   
-        
-        
-        return final_values
+
+        final_dict = [
+            {
+                "rois": final_bboxes,
+                "class_ids": final_class_ids,
+                "scores": final_scores,
+                "masks": final_masks,
+            }
+        ]
+
+        return final_dict[0]
             
 
 
@@ -199,11 +195,11 @@ class instance_segmentation():
         r = results[0]
 
         """Filter unused detections and detect specific classes """
-        
+
         if segment_target_classes is not None:
             r = self.filter_objects(r, segment_target_classes) 
-        
-            
+
+
         if show_bboxes == False:
 
             output = display_instances(image, r['rois'], r['masks'], r['class_ids'], coco_config.class_names)
@@ -217,14 +213,14 @@ class instance_segmentation():
             print("Processed image saved successfully in your current working directory.")   
 
 
-            
-        
+
+
         if extract_segmented_objects == False:
-                
+
             if mask_points_values == True:
                 mask = r['masks']
                 contain_val = []
-                    
+
                 for a in range(mask.shape[2]):
                     m = mask[:,:,a]
                     mask_values = Mask(m).polygons()
@@ -233,7 +229,7 @@ class instance_segmentation():
                 contain_val = np.asarray(contain_val, dtype = object)
 
                 r['masks'] = contain_val
-             
+
 
             return r, output
 
@@ -243,26 +239,26 @@ class instance_segmentation():
 
             mask = r['masks']
             m = 0
-            ex = []
             if len(mask != 0):
+                ex = []
                 for a in range(mask.shape[2]):
-                    
+
                     img = cv2.imread(image_path)
-                    
+
                     for b in range(img.shape[2]):
-       
+
                         img[:,:,b] = img[:,:,b] * mask[:,:,a]
                     m+=1
                     extracted_objects = img[np.ix_(mask[:,:,a].any(1), mask[:,:,a].any(0))]
-                    
+
                     ex.append(extracted_objects)
                     if save_extracted_objects == True:
                         save_path = os.path.join("segmented_object" + "_" + str(m) + ".jpg")
                         cv2.imwrite(save_path, extracted_objects)
 
                 extracted_objects = np.array(ex, dtype = object)
-                
-                
+
+
                 if mask_points_values == True:
                     mask = r['masks']
                     contain_val = []
@@ -270,7 +266,7 @@ class instance_segmentation():
                         m = mask[:,:,a]
                         mask_values = Mask(m).polygons()
                         val = mask_values.points
-                
+
                         contain_val.append(val)
                     contain_val = np.array(contain_val, dtype= object)
 
@@ -292,10 +288,10 @@ class instance_segmentation():
 
                     extracted_objects = object_val
 
-            
+
                 """ The mask values of each of the extracted cropped object in the image
                 is added to the dictionary containing an array of output values:
-                """ 
+                """
                 r.update({"extracted_objects":extracted_objects})
 
                 return r, output       
@@ -307,22 +303,23 @@ class instance_segmentation():
     save_extracted_objects = False,mask_points_values = False,  output_folder_name = None,  text_thickness = 0,
     text_size = 0.6, box_thickness = 2,  verbose = None):
 
-        if output_folder_name is not None:
-            if not os.path.exists(output_folder_name):
-                os.mkdir(output_folder_name)
+        if output_folder_name is not None and not os.path.exists(
+            output_folder_name
+        ):
+            os.mkdir(output_folder_name)
 
         res = []
         out = []
 
 
-        
+
         for p in Path(input_folder).glob('*'): 
             path = str(p)
-            
+
             if extract_segmented_objects == False:
                 for name in [".jpg", ".png", ".tif"]:
-                    
-                
+
+
                     if os.path.abspath(p).endswith(name):
                         path = str(p)
                         results, output = self.segmentImage(path, show_bboxes = show_bboxes,
@@ -335,17 +332,17 @@ class instance_segmentation():
                             name = os.path.basename(path)
                             name = '.'.join(name.split('.')[:-1]) + ext
                             output_path = os.path.join(output_folder_name, name)
-                        
+
                             cv2.imwrite(output_path, output)  
-    
-                
+
+
             else:
                 for name in [".jpg", ".png", ".tif"]:
-                
-                
+
+
                     if os.path.abspath(p).endswith(name):
                         path = str(p)
-                
+
                         results, output = self.segmentImage(path, show_bboxes = show_bboxes,
                         segment_target_classes = segment_target_classes, text_thickness = text_thickness,text_size = text_size, 
                         box_thickness = box_thickness, mask_points_values = mask_points_values, verbose = verbose)
@@ -362,41 +359,41 @@ class instance_segmentation():
 
                         mask = results['masks']
                         m = 0
-                        ex = []
                         if len(mask != 0):
+                            ex = []
                             for a in range(mask.shape[2]):
-                    
+                                            
                                 img = cv2.imread(path)
-                    
+
                                 for b in range(img.shape[2]):
-       
+
                                     img[:,:,b] = img[:,:,b] * mask[:,:,a]
                                 m+=1
                                 extracted_objects = img[np.ix_(mask[:,:,a].any(1), mask[:,:,a].any(0))]
-                    
+
                                 ex.append(extracted_objects)
                                 if save_extracted_objects == True:
-                             
-                                    name, ext = os.path.splitext(path) 
-                                    dir_extracts = os.path.join(name + "_" + "extracts")  
-                              
-                            
+                                                         
+                                    name, ext = os.path.splitext(path)
+                                    dir_extracts = os.path.join(f'{name}_extracts')  
+                                                              
+
                                     if not os.path.exists(dir_extracts):
                                         os.mkdir(dir_extracts)
-                                
-                                    save_path = os.path.join("segmented_object" + "_" + str(m) + ".jpg")    
+
+                                    save_path = os.path.join("segmented_object" + "_" + str(m) + ".jpg")
                                     n, ext = os.path.splitext(save_path)
                                     n = os.path.basename(save_path)
                                     n = '.'.join(n.split('.')[:-1]) + ext
                                     output_path = os.path.join(dir_extracts, n)
-                            
-                            
+
+
                                     cv2.imwrite(output_path, extracted_objects)
-                            
+
 
                                 extracted_objects = np.array(ex, dtype = object)
-                
-                
+
+
                             if mask_points_values == True:
                                 mask = results['masks']
                                 contain_val = []
@@ -404,7 +401,7 @@ class instance_segmentation():
                                     m = mask[:,:,a]
                                     mask_values = Mask(m).polygons()
                                     val = mask_values.points
-                
+
                                     contain_val.append(val)
                                 contain_val = np.array(contain_val, dtype= object)
 
@@ -414,16 +411,16 @@ class instance_segmentation():
 
                                 extract_mask = extracted_objects
                                 object_val = []
-                            
-                                
-            
+
+
+
                             """ The mask values of each of the extracted cropped object in the image
                             is added to the dictionary containing an array of output values:
-                            """ 
+                            """
                             results.update({"extracted_objects":extracted_objects})
-                           
+
             res.append(results)
-            
+
             out.append(output)  
 
 
@@ -446,11 +443,11 @@ class instance_segmentation():
         r = results[0] 
 
         """Filter unused detections and detect specific classes """
-        
+
         if segment_target_classes is not None:
             r = self.filter_objects(r, segment_target_classes) 
-        
-            
+
+
         if show_bboxes == False:
 
             output = display_instances(frame, r['rois'], r['masks'], r['class_ids'], coco_config.class_names)
@@ -464,14 +461,14 @@ class instance_segmentation():
             print("Processed image saved successfully in your current working directory.")   
 
 
-            
-        
+
+
         if extract_segmented_objects == False:
                 
             if mask_points_values == True:
                 mask = r['masks']
                 contain_val = []
-                    
+
                 for a in range(mask.shape[2]):
                     m = mask[:,:,a]
                     mask_values = Mask(m).polygons()
@@ -480,26 +477,24 @@ class instance_segmentation():
 
                 contain_val = np.asarray(contain_val, dtype = object)
                 r['masks'] = contain_val
-             
 
-            return r, output
 
         else:
 
             """ Code to extract and crop out each of the objects segmented in an image """
-        
+
             mask = r['masks']
             m = 0
-            ex = []
             if len(mask != 0):
+                ex = []
                 for a in range(mask.shape[2]):
-                    
+
                     ori_frame = new_frame
                     img = cv2.cvtColor(ori_frame, cv2.COLOR_RGB2BGR)
-                
-                    
+
+
                     for b in range(img.shape[2]):
-       
+
                         img[:,:,b] = img[:,:,b] * mask[:,:,a]
                     m+=1
                     extracted_objects = img[np.ix_(mask[:,:,a].any(1), mask[:,:,a].any(0))]
@@ -512,19 +507,19 @@ class instance_segmentation():
 
 
                 if mask_points_values == True:
-                        
+
                     contain_val = []
                     for a in range(mask.shape[2]):
                         m = mask[:,:,a]
                         mask_values = Mask(m).polygons()
                         val = mask_values.points
-                
+
                         contain_val.append(val)
 
                     contain_val = np.asarray(contain_val, dtype = object)    
                     r['masks'] = contain_val
 
-                       
+
                     extract_mask = extracted_objects
                     object_val = []
 
@@ -542,8 +537,9 @@ class instance_segmentation():
                 """ 
 
                 r.update({"extracted_objects": extracted_objects})
-                
-            return r, output
+
+
+        return r, output
         
 
         
@@ -604,7 +600,7 @@ class instance_segmentation():
     text_thickness = 0,text_size = 0.6, box_thickness = 2,mask_points_values = False, output_video_name = None, frames_per_second = None,
      show_frames = None, frame_name = None, verbose = None, check_fps = False):
         capture = cam
-        
+
         if output_video_name is not None:
             width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -614,7 +610,7 @@ class instance_segmentation():
         counter = 0
         start = datetime.now()     
 
-        
+
         while True:
                 
             ret, frame = capture.read()
@@ -623,28 +619,27 @@ class instance_segmentation():
                         text_thickness = text_thickness,text_size = text_size, box_thickness = box_thickness,
                         extract_segmented_objects=extract_segmented_objects, save_extracted_objects=save_extracted_objects,
                         mask_points_values= mask_points_values )
-                    
-                        
+
+
                 output = cv2.resize(output, (width,height), interpolation=cv2.INTER_AREA)
 
-                if show_frames == True:
-                    if frame_name is not None:
-                        cv2.imshow(frame_name, output)
-                            
-                        if cv2.waitKey(25) & 0xFF == ord('q'):
-                            break  
+                if show_frames == True and frame_name is not None:
+                    cv2.imshow(frame_name, output)
+
+                    if cv2.waitKey(25) & 0xFF == ord('q'):
+                        break  
 
                 if output_video_name is not None:
                     save_video.write(output)
 
-                  
-                   
+
+
             elif counter == 30:
                 break  
-               
+
         end = datetime.now() 
-            
-            
+
+
         if check_fps == True:
             timetaken = (end-start).total_seconds()
             fps = counter/timetaken
@@ -652,14 +647,14 @@ class instance_segmentation():
 
         if verbose is not None:
             print(f"Processed {counter} frames in {timetaken:.1f} seconds") 
-                        
-           
+
+
         capture.release()
 
         if output_video_name is not None:
             save_video.release()  
-   
-        
+
+
         return seg, output     
     
 
